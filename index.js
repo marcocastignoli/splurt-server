@@ -24,14 +24,28 @@ wss.on('connection', function connection(ws) {
                     var decoded = jwt.verify(message.data, _PRIVATE_KEY)
                     if (decoded) {
                         peers[decoded.id] = ws
+                        ws._clientId = decoded.id;
                     }
                 } break;
             }
         } catch (e) {
             console.log(e)
         }
-    });
+    })
+    ws.isAlive = true;
+    ws.on('pong', function(){ this.isAlive = true });
 });
+
+const interval = setInterval(function ping() {
+    wss.clients.forEach(function each(ws) {
+        if (ws.isAlive === false){
+            delete peers[ws._clientId]; 
+            return ws.terminate();
+        }
+        ws.isAlive = false;
+        ws.ping(() => {});
+    });
+}, 30000);
 
 const MongoClient = mongodb.MongoClient
 
