@@ -1,22 +1,30 @@
 const jwt = require('jsonwebtoken')
 const mongodb = require('mongodb')
 
-module.exports = ({db, app, _PRIVATE_KEY}) => {
+module.exports = ({ db, app, _PRIVATE_KEY }) => {
     app.delete('/users/my', function (req, res) {
-        db.collection('users').deleteOne({_id: new mongodb.ObjectID(req.user.id)});
-        return res.send('ok')
+        if (req.user.type === 'user') {
+            db.collection('users').deleteOne({ _id: new mongodb.ObjectID(req.user.id) });
+            return res.send('ok')
+        } else {
+            return res.send('You are not a user')
+        }
     })
 
     app.put('/users/my', function (req, res) {
-        if (req.body.name) {
-            db.collection('users').updateOne({_id: new mongodb.ObjectID(req.user.id)}, { 
-                $set: {
-                    pwd: req.body.pwd
-                }
-            })
-            return res.send('ok')
+        if (req.user.type === 'user') {
+            if (req.body.name) {
+                db.collection('users').updateOne({ _id: new mongodb.ObjectID(req.user.id) }, {
+                    $set: {
+                        pwd: req.body.pwd
+                    }
+                })
+                return res.send('ok')
+            } else {
+                return res.send('err: passami il parametro name nel body')
+            }
         } else {
-            return res.send('err: passami il parametro name nel body')
+            return res.send('You are not a user')
         }
     })
 
@@ -32,7 +40,7 @@ module.exports = ({db, app, _PRIVATE_KEY}) => {
         }
     })
 
-    app.post('/users/login', (req,res) => {
+    app.post('/users/login', (req, res) => {
         if (req.body.name && req.body.pwd) {
             db.collection('users').findOne({
                 name: req.body.name,
@@ -43,7 +51,7 @@ module.exports = ({db, app, _PRIVATE_KEY}) => {
                 }
                 const token = jwt.sign({ name: result.name, id: result._id, type: 'user' }, _PRIVATE_KEY);
                 return res.send(JSON.stringify({
-                    data: {name: result.name, id: result._id, type: 'user'},
+                    data: { name: result.name, id: result._id, type: 'user' },
                     token
                 }))
             });
@@ -53,12 +61,12 @@ module.exports = ({db, app, _PRIVATE_KEY}) => {
     })
 
     app.get('/users/available_services', function (req, res) {
-        if (req.user.id) {
-            db.collection('services').find({}, {fields: { pwd: 0 }}).toArray((err, services) => {
+        if (req.user.type === 'user') {
+            db.collection('services').find({}, { fields: { pwd: 0 } }).toArray((err, services) => {
                 if (err) {
                     throw err;
                 }
-                db.collection('users').findOne({_id: new mongodb.ObjectID(req.user.id)}, async (err, user) => {
+                db.collection('users').findOne({ _id: new mongodb.ObjectID(req.user.id) }, async (err, user) => {
                     if (err) {
                         throw err;
                     }
@@ -81,25 +89,33 @@ module.exports = ({db, app, _PRIVATE_KEY}) => {
                 });
             });
         } else {
-            return res.send('401')
+            return res.send('You are not a user')
         }
     })
 
     app.put('/users/service/:service', function (req, res) {
-        db.collection('users').updateOne({_id: new mongodb.ObjectID(req.user.id)}, { 
-            $addToSet: {
-                services: new mongodb.ObjectID(req.params.service)
-            }
-        })
-        return res.send('ok')
+        if (req.user.type === 'user') {
+            db.collection('users').updateOne({ _id: new mongodb.ObjectID(req.user.id) }, {
+                $addToSet: {
+                    services: new mongodb.ObjectID(req.params.service)
+                }
+            })
+            return res.send('ok')
+        } else {
+            return res.send('You are not a user')
+        }
     })
 
     app.delete('/users/service/:service', function (req, res) {
-        db.collection('users').updateOne({_id: new mongodb.ObjectID(req.user.id)}, { 
-            $pull: {
-                services: new mongodb.ObjectID(req.params.service)
-            }
-        })
-        return res.send('ok')
+        if (req.user.type === 'user') {
+            db.collection('users').updateOne({ _id: new mongodb.ObjectID(req.user.id) }, {
+                $pull: {
+                    services: new mongodb.ObjectID(req.params.service)
+                }
+            })
+            return res.send('ok')
+        } else {
+            return res.send('You are not a user')
+        }
     })
 }
